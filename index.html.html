@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#008060">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="TChat">
+<title>TChat — Live Chat</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.4.7/peerjs.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --green:#008060; --green2:#00a878; --green-light:#e6f7f2;
+  --dark:#0d1117; --card:#161b22; --border:#21262d;
+  --text:#e6edf3; --muted:#7d8590; --blue:#388bfd;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100dvh;font-family:'Plus Jakarta Sans',sans-serif;background:var(--dark);color:var(--text);overflow:hidden;-webkit-font-smoothing:antialiased;}
+
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;transform:translateX(100%);transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);}
+.screen.active{transform:translateX(0);}
+.screen.behind{transform:translateX(-28%);}
+
+/* HOME */
+#s-home{background:linear-gradient(160deg,#0d1117,#0a1a12);justify-content:center;align-items:center;transform:translateX(0);padding:28px 24px;}
+.logo-icon{width:76px;height:76px;border-radius:20px;background:linear-gradient(135deg,var(--green),var(--green2));display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 12px;box-shadow:0 14px 40px rgba(0,128,96,0.4);}
+.logo-name{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;text-align:center;}
+.logo-name span{color:var(--green2);}
+.logo-tag{font-size:13px;color:var(--muted);text-align:center;margin-top:4px;}
+
+.setup-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:22px;width:100%;max-width:340px;margin-top:28px;}
+.sc-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;margin-bottom:16px;color:var(--text);}
+.role-btns{display:flex;gap:10px;margin-bottom:18px;}
+.role-btn{flex:1;padding:12px;border-radius:12px;border:2px solid var(--border);background:transparent;color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.15s;text-align:center;}
+.role-btn.active{border-color:var(--green);background:rgba(0,128,96,0.1);color:var(--green);}
+
+.lang-select{background:var(--dark);border:1px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text);font-size:14px;font-weight:600;outline:none;font-family:inherit;width:100%;margin-bottom:14px;}
+
+.room-inp{background:var(--dark);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:18px;font-weight:800;outline:none;font-family:inherit;width:100%;text-align:center;letter-spacing:4px;text-transform:uppercase;margin-bottom:6px;}
+.room-inp::placeholder{font-size:14px;letter-spacing:0;font-weight:400;color:var(--muted);}
+.room-inp:focus{border-color:var(--green);}
+.room-hint{font-size:11px;color:var(--muted);text-align:center;margin-bottom:14px;line-height:1.5;}
+
+.my-code-box{background:rgba(0,128,96,0.08);border:1.5px solid rgba(0,128,96,0.25);border-radius:10px;padding:14px;text-align:center;margin-bottom:14px;}
+.mc-label{font-size:11px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;}
+.mc-code{font-size:28px;font-weight:800;color:var(--green);letter-spacing:6px;font-family:'Syne',sans-serif;}
+.mc-share{font-size:11px;color:var(--muted);margin-top:6px;}
+
+.start-btn{width:100%;background:var(--green);color:white;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:800;font-family:'Syne',sans-serif;cursor:pointer;transition:opacity 0.15s;}
+.start-btn:active{opacity:0.85;}
+.start-btn:disabled{opacity:0.4;}
+
+.status-row{margin-top:14px;text-align:center;font-size:12px;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:6px;}
+.sdot{width:8px;height:8px;border-radius:50%;background:var(--muted);}
+.sdot.green{background:var(--green);box-shadow:0 0 0 3px rgba(0,128,96,0.2);}
+.sdot.orange{background:#f97316;box-shadow:0 0 0 3px rgba(249,115,22,0.2);}
+
+/* CHAT */
+#s-chat{background:#f0f2f5;}
+.chat-hdr{background:linear-gradient(135deg,var(--green),var(--green2));padding:13px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;box-shadow:0 2px 10px rgba(0,128,96,0.3);}
+.back-btn{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;color:white;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.ch-av{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;border:2px solid rgba(255,255,255,0.3);}
+.ch-inf h3{font-size:15px;font-weight:700;color:white;}
+.ch-inf p{font-size:11px;color:rgba(255,255,255,0.75);margin-top:1px;}
+
+.msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:4px;-webkit-overflow-scrolling:touch;}
+.msgs::-webkit-scrollbar{display:none;}
+
+.msg-row{display:flex;margin-bottom:2px;}
+.msg-row.sent{justify-content:flex-end;}
+.msg-row.recv{justify-content:flex-start;}
+.msg-av{width:28px;height:28px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-right:6px;align-self:flex-end;margin-bottom:2px;}
+.bw{max-width:78%;display:flex;flex-direction:column;}
+.msg-row.sent .bw{align-items:flex-end;}
+.bubble{padding:10px 13px;border-radius:17px;font-size:15px;line-height:1.5;word-break:break-word;}
+.msg-row.recv .bubble{background:white;color:#1a1a1a;border-bottom-left-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.07);}
+.msg-row.sent .bubble{background:linear-gradient(135deg,var(--green),var(--green2));color:white;border-bottom-right-radius:4px;}
+.bubble-sub{font-size:11px;color:#999;font-style:italic;margin-top:3px;padding:0 3px;}
+.msg-row.sent .bubble-sub{color:rgba(255,255,255,0.55);text-align:right;}
+.msg-time{font-size:10px;color:#bbb;margin-top:2px;padding:0 3px;}
+.msg-row.sent .msg-time{color:rgba(255,255,255,0.5);}
+
+.typing-row{display:flex;align-items:flex-end;gap:6px;margin-bottom:2px;}
+.typing-bub{background:white;border-radius:17px;border-bottom-left-radius:4px;padding:11px 14px;display:flex;gap:4px;align-items:center;box-shadow:0 1px 3px rgba(0,0,0,0.07);}
+.tdot{width:7px;height:7px;border-radius:50%;background:#ccc;animation:td 1.3s infinite ease-in-out;}
+.tdot:nth-child(2){animation-delay:0.15s;}
+.tdot:nth-child(3){animation-delay:0.3s;}
+@keyframes td{0%,60%,100%{transform:translateY(0);background:#ccc;}30%{transform:translateY(-5px);background:var(--green);}}
+
+.inp-bar{background:white;border-top:1px solid #e8ecf0;padding:10px 12px;padding-bottom:calc(10px + var(--safe-bottom));display:flex;gap:8px;align-items:flex-end;flex-shrink:0;}
+.inp-bar textarea{flex:1;border:1.5px solid #e8ecf0;border-radius:20px;padding:9px 14px;font-size:15px;font-family:inherit;resize:none;outline:none;max-height:90px;line-height:1.4;background:#f7f8fa;color:#1a1a1a;-webkit-appearance:none;}
+.inp-bar textarea:focus{border-color:var(--green);background:white;}
+.send-btn{width:42px;height:42px;border-radius:50%;background:var(--green);border:none;display:flex;align-items:center;justify-content:center;font-size:17px;color:white;cursor:pointer;flex-shrink:0;box-shadow:0 3px 10px rgba(0,128,96,0.4);transition:transform 0.15s;}
+.send-btn:active{transform:scale(0.91);}
+.send-btn:disabled{opacity:0.4;}
+
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(8px);background:#1a1a2a;color:white;padding:10px 20px;border-radius:28px;font-size:13px;font-weight:600;z-index:9999;opacity:0;transition:all 0.28s;pointer-events:none;white-space:nowrap;border:1px solid rgba(255,255,255,0.1);box-shadow:0 6px 20px rgba(0,0,0,0.4);}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<!-- HOME / SETUP -->
+<div class="screen active" id="s-home">
+  <div class="logo-icon">🌍</div>
+  <div class="logo-name">T<span>Chat</span></div>
+  <div class="logo-tag">No login · No app · Direct connection</div>
+
+  <div class="setup-card">
+    <div class="sc-title">📱 तुम्ही कोण आहात?</div>
+
+    <div class="role-btns">
+      <button class="role-btn active" id="btn-cust" onclick="pickRole('customer')">👤 Customer</button>
+      <button class="role-btn" id="btn-agent" onclick="pickRole('agent')">🎧 Agent</button>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">तुमची भाषा</div>
+    <select class="lang-select" id="my-lang">
+      <option value="mr">🇮🇳 मराठी</option>
+      <option value="hi">🇮🇳 हिंदी</option>
+      <option value="kn">🇮🇳 ಕನ್ನಡ</option>
+      <option value="ta">🇮🇳 தமிழ்</option>
+      <option value="te">🇮🇳 తెలుగు</option>
+      <option value="ml">🇮🇳 മലയാളം</option>
+      <option value="bn">🇮🇳 বাংলা</option>
+      <option value="gu">🇮🇳 ગુજરાતી</option>
+      <option value="en">🇬🇧 English</option>
+    </select>
+
+    <!-- Customer side: shows own code + enter other code -->
+    <div id="customer-setup">
+      <div class="my-code-box">
+        <div class="mc-label">तुमचा Room Code — दुसऱ्याला पाठवा</div>
+        <div class="mc-code" id="my-code">----</div>
+        <div class="mc-share">हा code WhatsApp वर पाठवा 👆</div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Agent चा Code टाका</div>
+      <input class="room-inp" id="agent-code-inp" type="text" placeholder="XXXX" maxlength="4" oninput="this.value=this.value.toUpperCase()">
+      <div class="room-hint">Agent ने त्यांचा code दिला की इथे टाका</div>
+    </div>
+
+    <!-- Agent side: shows own code -->
+    <div id="agent-setup" style="display:none;">
+      <div class="my-code-box">
+        <div class="mc-label">तुमचा Room Code — Customer ला पाठवा</div>
+        <div class="mc-code" id="agent-my-code">----</div>
+        <div class="mc-share">हा code WhatsApp वर पाठवा 👆</div>
+      </div>
+      <div class="room-hint" style="margin-bottom:14px;">Customer ने code टाकला की ते connect होतील. खालचं बटण दाबा.</div>
+    </div>
+
+    <button class="start-btn" id="start-btn" onclick="startChat()" disabled>⏳ Code मिळवत आहे...</button>
+
+    <div class="status-row">
+      <div class="sdot" id="sdot"></div>
+      <span id="slabel">Initializing...</span>
+    </div>
+  </div>
+</div>
+
+<!-- CHAT -->
+<div class="screen" id="s-chat">
+  <div class="chat-hdr">
+    <button class="back-btn" onclick="goBack()">‹</button>
+    <div class="ch-av" id="ch-avatar">🎧</div>
+    <div class="ch-inf">
+      <h3 id="ch-name">Connecting...</h3>
+      <p id="ch-status">Please wait...</p>
+    </div>
+  </div>
+  <div class="msgs" id="msgs"></div>
+  <div class="inp-bar">
+    <textarea id="chat-inp" rows="1" placeholder="टाइप करा..." onkeydown="chatKey(event)" oninput="resz(this)" disabled></textarea>
+    <button class="send-btn" id="send-btn" onclick="sendMsg()" disabled>➤</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── STATE ─────────────────────────────────────────
+const ST = {
+  role: 'customer',
+  myLang: 'mr',
+  peer: null,
+  conn: null,
+  myCode: null,
+  connected: false,
+  busy: false,
+  apiKey: null,
+};
+
+const LANGS = {
+  hi:{name:'Hindi',native:'हिंदी',flag:'🇮🇳'},
+  mr:{name:'Marathi',native:'मराठी',flag:'🇮🇳'},
+  kn:{name:'Kannada',native:'ಕನ್ನಡ',flag:'🇮🇳'},
+  ta:{name:'Tamil',native:'தமிழ்',flag:'🇮🇳'},
+  te:{name:'Telugu',native:'తెలుగు',flag:'🇮🇳'},
+  ml:{name:'Malayalam',native:'മലയാളം',flag:'🇮🇳'},
+  bn:{name:'Bengali',native:'বাংলা',flag:'🇮🇳'},
+  gu:{name:'Gujarati',native:'ગુજરાતી',flag:'🇮🇳'},
+  en:{name:'English',native:'English',flag:'🇬🇧'},
+};
+
+// ── ROLE PICK ─────────────────────────────────────
+function pickRole(r) {
+  ST.role = r;
+  document.getElementById('btn-cust').classList.toggle('active', r==='customer');
+  document.getElementById('btn-agent').classList.toggle('active', r==='agent');
+  document.getElementById('customer-setup').style.display = r==='customer' ? 'block' : 'none';
+  document.getElementById('agent-setup').style.display   = r==='agent'    ? 'block' : 'none';
+}
+
+// ── PEER INIT ─────────────────────────────────────
+function makeCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for(let i=0;i<4;i++) code += chars[Math.floor(Math.random()*chars.length)];
+  return code;
+}
+
+function initPeer() {
+  const code = makeCode();
+  ST.myCode = code;
+
+  // Show code in both sections
+  document.getElementById('my-code').textContent = code;
+  document.getElementById('agent-my-code').textContent = code;
+
+  ST.peer = new Peer(code, {
+    host: '0.peerjs.com', port: 443, secure: true,
+    config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+  });
+
+  ST.peer.on('open', (id) => {
+    setStatus('green', 'Ready! Code: ' + id);
+    document.getElementById('start-btn').disabled = false;
+    document.getElementById('start-btn').textContent = ST.role === 'customer' ? '🔗 Connect करा' : '⏳ Customer ची वाट पाहतो...';
+    if (ST.role === 'agent') {
+      document.getElementById('start-btn').disabled = true;
+    }
+  });
+
+  ST.peer.on('connection', (conn) => {
+    // Incoming connection (agent receives from customer)
+    setupConn(conn);
+    goToChat();
+  });
+
+  ST.peer.on('error', (err) => {
+    setStatus('orange', 'Error: ' + err.type);
+    if (err.type === 'unavailable-id') {
+      // Code taken — try again
+      ST.peer.destroy();
+      initPeer();
+    }
+  });
+}
+
+function setupConn(conn) {
+  ST.conn = conn;
+  conn.on('open', () => {
+    ST.connected = true;
+    document.getElementById('ch-status').textContent = '● Connected — Live';
+    document.getElementById('ch-status').style.color = 'rgba(0,255,180,0.9)';
+    document.getElementById('chat-inp').disabled = false;
+    document.getElementById('send-btn').disabled = false;
+    // Send handshake
+    conn.send({ type: 'handshake', lang: ST.myLang, role: ST.role });
+  });
+  conn.on('data', (data) => {
+    handleData(data);
+  });
+  conn.on('close', () => {
+    ST.connected = false;
+    document.getElementById('ch-status').textContent = 'Disconnected';
+    document.getElementById('chat-inp').disabled = true;
+    document.getElementById('send-btn').disabled = true;
+    showToast('Connection बंद झाली 😢');
+  });
+  conn.on('error', (e) => {
+    showToast('Connection error: ' + e.message);
+  });
+}
+
+// ── START CHAT ────────────────────────────────────
+function startChat() {
+  ST.myLang = document.getElementById('my-lang').value;
+
+  if (ST.role === 'customer') {
+    const otherCode = document.getElementById('agent-code-inp').value.trim().toUpperCase();
+    if (!otherCode || otherCode.length < 4) {
+      showToast('Agent चा 4-अक्षरी code टाका');
+      return;
+    }
+    const conn = ST.peer.connect(otherCode, { reliable: true });
+    setupConn(conn);
+    goToChat();
+  }
+  // Agent waits for incoming (handled in peer.on('connection'))
+}
+
+function goToChat() {
+  const isCustomer = ST.role === 'customer';
+  document.getElementById('ch-avatar').textContent = isCustomer ? '🎧' : '👤';
+  document.getElementById('ch-name').textContent   = isCustomer ? 'Support Agent' : 'Customer';
+  document.getElementById('ch-status').textContent = 'Connecting...';
+  document.getElementById('chat-inp').placeholder  = LANGS[ST.myLang]?.name + ' मध्ये टाइप करा...';
+
+  document.getElementById('s-home').classList.remove('active');
+  document.getElementById('s-home').classList.add('behind');
+  document.getElementById('s-chat').classList.add('active');
+}
+
+// ── DATA HANDLER ──────────────────────────────────
+let otherLang = 'hi';
+
+async function handleData(data) {
+  removeTyping();
+  if (data.type === 'handshake') {
+    otherLang = data.lang;
+    const info = LANGS[data.lang] || {};
+    document.getElementById('ch-name').textContent = data.role === 'customer'
+      ? 'Customer (' + (info.name||data.lang) + ')'
+      : 'Agent (' + (info.name||data.lang) + ')';
+    document.getElementById('ch-status').textContent = '● Connected — Live';
+    document.getElementById('ch-status').style.color = 'rgba(0,255,180,0.9)';
+    document.getElementById('chat-inp').disabled = false;
+    document.getElementById('send-btn').disabled = false;
+    // Also send own handshake
+    if (ST.conn && ST.connected) {
+      try { ST.conn.send({ type: 'handshake', lang: ST.myLang, role: ST.role }); } catch(e){}
+    }
+    return;
+  }
+  if (data.type === 'typing') {
+    showTyping(); return;
+  }
+  if (data.type === 'msg') {
+    // Translate to my language
+    let displayText = data.text;
+    if (data.lang && data.lang !== ST.myLang) {
+      displayText = await translate(data.text, data.lang, ST.myLang) || data.text;
+    }
+    addBubble('recv', displayText, displayText !== data.text ? data.text : null);
+    ST.busy = false;
+    document.getElementById('send-btn').disabled = false;
+  }
+}
+
+// ── TRANSLATION ───────────────────────────────────
+async function translate(text, fromLang, toLang) {
+  const fromName = LANGS[fromLang]?.name || fromLang;
+  const toName   = LANGS[toLang]?.name   || toLang;
+  try {
+    // Try Claude API if key available
+    if (ST.apiKey) {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': ST.apiKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 300,
+          messages: [{ role: 'user', content: `Translate from ${fromName} to ${toName}. Return ONLY the translation, nothing else: "${text}"` }]
+        })
+      });
+      const d = await res.json();
+      return d.content?.[0]?.text?.trim() || text;
+    }
+    return null; // No key — show original
+  } catch(e) { return null; }
+}
+
+// ── SEND ──────────────────────────────────────────
+function chatKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();} }
+
+function sendMsg() {
+  const inp = document.getElementById('chat-inp');
+  const txt = inp.value.trim();
+  if (!txt || !ST.connected) return;
+  inp.value = ''; resz(inp);
+  addBubble('sent', txt, null);
+  try {
+    ST.conn.send({ type: 'msg', text: txt, lang: ST.myLang });
+  } catch(e) { showToast('Send failed — reconnect करा'); }
+}
+
+function sendTyping() {
+  if (ST.conn && ST.connected) {
+    try { ST.conn.send({ type: 'typing' }); } catch(e){}
+  }
+}
+
+// ── UI ────────────────────────────────────────────
+function addBubble(type, text, orig) {
+  const w = document.getElementById('msgs');
+  const time = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const d = document.createElement('div');
+  d.className = 'msg-row ' + type;
+  if (type === 'recv') {
+    d.innerHTML = `<div class="msg-av">${ST.role==='customer'?'🎧':'👤'}</div>
+      <div class="bw">
+        <div class="bubble">${text}</div>
+        ${orig ? `<div class="bubble-sub">🌐 ${orig}</div>` : ''}
+        <div class="msg-time">${time}</div>
+      </div>`;
+  } else {
+    d.innerHTML = `<div class="bw">
+        <div class="bubble">${text}</div>
+        <div class="msg-time">${time} ✓✓</div>
+      </div>`;
+  }
+  w.appendChild(d);
+  w.scrollTop = w.scrollHeight;
+}
+
+function showTyping() {
+  if (document.getElementById('typing-ind')) return;
+  const w = document.getElementById('msgs');
+  const d = document.createElement('div');
+  d.id = 'typing-ind'; d.className = 'typing-row';
+  d.innerHTML = `<div class="msg-av">${ST.role==='customer'?'🎧':'👤'}</div>
+    <div class="typing-bub"><div class="tdot"></div><div class="tdot"></div><div class="tdot"></div></div>`;
+  w.appendChild(d); w.scrollTop = w.scrollHeight;
+  setTimeout(removeTyping, 3000);
+}
+function removeTyping() { const t=document.getElementById('typing-ind'); if(t) t.remove(); }
+
+function setStatus(color, msg) {
+  const dot = document.getElementById('sdot');
+  dot.className = 'sdot ' + color;
+  document.getElementById('slabel').textContent = msg;
+}
+
+function goBack() {
+  if (ST.conn) try { ST.conn.close(); } catch(e){}
+  if (ST.peer) ST.peer.destroy();
+  document.getElementById('s-chat').classList.remove('active');
+  document.getElementById('s-home').classList.remove('behind');
+  document.getElementById('s-home').classList.add('active');
+  // Reinit
+  setTimeout(initPeer, 500);
+}
+
+function resz(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,90)+'px'; }
+function showToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+// Typing indicator on input
+let typingTimer;
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('chat-inp').addEventListener('input', () => {
+    clearTimeout(typingTimer);
+    sendTyping();
+    typingTimer = setTimeout(()=>{}, 1000);
+  });
+  pickRole('customer');
+  initPeer();
+});
+</script>
+</body>
+</html>
