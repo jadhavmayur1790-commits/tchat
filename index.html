@@ -355,21 +355,13 @@ async function translate(text, fromLang, toLang) {
   const fromName = LANGS[fromLang]?.name || fromLang;
   const toName   = LANGS[toLang]?.name   || toLang;
   try {
-    // Try Claude API if key available
-    if (ST.apiKey) {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': ST.apiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 300,
-          messages: [{ role: 'user', content: `Translate from ${fromName} to ${toName}. Return ONLY the translation, nothing else: "${text}"` }]
-        })
-      });
-      const d = await res.json();
-      return d.content?.[0]?.text?.trim() || text;
-    }
-    return null; // No key — show original
+    const res = await fetch('https://tchat-india.tech/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, fromLang: fromName, toLang: toName })
+    });
+    const d = await res.json();
+    return d.reply || text;
   } catch(e) { return null; }
 }
 
