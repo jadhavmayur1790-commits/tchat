@@ -117,7 +117,7 @@ html,body{height:100dvh;font-family:'Plus Jakarta Sans',sans-serif;background:va
     </div>
 
     <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">तुमची भाषा</div>
-    <select class="lang-select" id="my-lang">
+    <select class="lang-select" id="my-lang" onchange="ST.myLang=this.value">
       <option value="mr">🇮🇳 मराठी</option>
       <option value="hi">🇮🇳 हिंदी</option>
       <option value="kn">🇮🇳 ಕನ್ನಡ</option>
@@ -222,6 +222,7 @@ function makeCode() {
 }
 
 function initPeer() {
+  ST.myLang = document.getElementById("my-lang").value;
   const code = makeCode();
   ST.myCode = code;
 
@@ -287,7 +288,7 @@ function setupConn(conn) {
 
 // ── START CHAT ────────────────────────────────────
 function startChat() {
-  ST.myLang = document.getElementById('my-lang').value || 'en';
+  ST.myLang = document.getElementById('my-lang').value;
 
   if (ST.role === 'customer') {
     const otherCode = document.getElementById('agent-code-inp').value.trim().toUpperCase();
